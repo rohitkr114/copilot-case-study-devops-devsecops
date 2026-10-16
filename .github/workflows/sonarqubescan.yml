@@ -1,8 +1,8 @@
 name: SonarQube SaaS version i.e SonarCloud
-# on: 
-#   push:
-#     branches:
-#       - main
+on:
+  push:
+    branches:
+      - main
 jobs:
   build:
     name: Build and analyze
@@ -16,3 +16,30 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.organization=rohitkr114 -Dsonar.projectKey=rohitkr114 
+
+  snyk-scan:
+    name: SCA scan using Snyk
+    needs: build
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/maven@master
+        continue-on-error: false
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  zap-scan:
+    name: DAST scan using OWASP ZAP
+    needs: snyk-scan
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: ZAP Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: 'https://www.zaproxy.org'
